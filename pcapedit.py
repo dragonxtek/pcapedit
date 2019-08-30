@@ -436,13 +436,21 @@ class editor(Cmd):
 
         if len(setargslist) >= 4 and self.editid == -1:
           setkey = setargslist[0]
-          setproto = setkey.split('.')[0]
-          setfield = setkey.split('.')[1]
+          if setkey == 'raw':
+            setproto = 'raw'
+            setfield = ''
+          else:
+            setproto = setkey.split('.')[0]
+            setfield = setkey.split('.')[1]
           setvalue = setargslist[1]
 
           searchkey = setargslist[2]
-          searchproto = searchkey.split('.')[0]
-          searchfield = searchkey.split('.')[1]
+          if searchkey == 'raw':
+            searchproto = 'raw'
+            searchfield = ''
+          else:
+            searchproto = searchkey.split('.')[0]
+            searchfield = searchkey.split('.')[1]
           searchvalue = setargslist[3]
 
           if re.search(r'(?i)^ether$', setproto): setproto = 'Ether'
@@ -459,7 +467,7 @@ class editor(Cmd):
           if re.search(r'(?i)^dns$', searchproto): searchproto = 'DNS'
           if re.search(r'(?i)^pay$', searchproto) and re.search(r'(?i)^load$', searchfield): searchproto = 'Raw'
 
-          if setproto == 'Raw' and searchproto == 'Raw':
+          if setproto == 'raw' and searchproto == 'raw':
             print 'Replacing %s.%s with value \'%s\' where %s.%s matches regex \'%s\'' % (
                 setproto,
                 setfield,
@@ -470,7 +478,14 @@ class editor(Cmd):
 
             for packet in self.packets:
               if packet.haslayer(Raw):
-                packet[Raw] = re.sub(searchvalue, setvalue, str(packet[Raw]))
+                if re.findall(searchvalue, packet[Raw].load):
+                    old = packet[Raw].load
+                    packet[Raw].load = re.sub(searchvalue, setvalue, old)
+                    len_diff = len(packet[Raw].load) - len(old)
+                    packet[IP].len += len_diff
+                    packet[Ether].len += len_diff
+                    packet.wirelen += len_diff
+                    print '%s -> %s' % (repr(old), repr(packet[Raw].load))
 
             return
 
